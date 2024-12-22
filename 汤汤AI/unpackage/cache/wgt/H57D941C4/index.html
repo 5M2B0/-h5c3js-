@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<link rel="stylesheet" href="css/new_file.css">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>汤汤AI</title>
+	</head>
+	<body>
+		<div class="chat-wrapper">
+			<div class="chat-header">
+				汤汤AI
+			</div>
+			<div class="chat-body">
+				<div class="error-message" style="display: none;">
+					接口错误，请重新尝试...
+				</div>
+				<div class="chat-messages">
+
+				</div>
+				<div class="chat-footer">
+					<form class="chat-form">
+						<input type="text" placeholder="请输入你的消息">
+						<button type="submit">
+							发送
+						</button>
+					</form>
+				</div>
+			</div>
+		</div>
+	</body>
+	<script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+	<script>
+		$(function() {
+			// 选择聊天窗口和错误提示元素以及发送按钮
+			const chatMessages = $('.chat-messages');
+			const errorMessage = $('.error-message');
+			const sendButton = $('button[type="submit"]');
+			// 设置标志变量flag，代表当前是否处于对话状态
+			let flag = false;
+			// 判断是否是刷新页面事件
+			const isRefresh = performance.navigation.type === 1;
+			// 重置输入框和发送按钮
+			function resetInputAndButton() {
+				sendButton.removeAttr('disabled').show();
+				$('input[type="text"]').val('');
+			}
+			// 在聊天窗口中添加错误提示信息
+			function addErrorMessageToChat() {
+				errorMessage.show();
+				const chatMessage = `
+	      <div class="chat-message">
+	        <div class="message bubble-left">Oops, something went wrong. Please try again later.</div>
+	      </div>
+	    `;
+				chatMessages.append(chatMessage);
+				chatMessages.scrollTop(chatMessages[0].scrollHeight);
+			}
+			// 在聊天窗口中添加聊天内容，逐字逐个字符显示
+			async function addMessageToChat(user, message, bubbleClass) {
+				flag = true; // 当前处于对话状态
+				sendButton.attr('disabled', 'disabled').hide(); // 禁用并隐藏发送按钮
+				const chatMessage = `
+	      <div class="chat-message">
+	        <div class="message ${bubbleClass}"></div>
+	      </div>
+	    `;
+				chatMessages.append(chatMessage);
+				const messageElement = $('.message').last();
+				for (let i = 0; i < message.length; i++) { // 循环添加字符
+					messageElement.append(message[i]);
+					chatMessages.scrollTop(chatMessages[0].scrollHeight);
+					await new Promise(resolve => setTimeout(resolve, 15)); // 控制显示速度
+				}
+				chatMessages.scrollTop(chatMessages[0].scrollHeight); // 显示结束后滚动到底部
+				flag = false; // 本次对话结束
+				resetInputAndButton(); // 重置输入框和发送按钮
+			}
+			// 调用接口获取聊天机器人的回复
+			function getResponseFromAPI(message) {
+				//必须要拿到我的输入框的关键字，使用关键字写入接口地址也就是说写入到变量  apiURL的参数变量message中，使用`返单引号进行拼接字符串
+				const messagess = $('input[type="text"]').val();
+				const apiURL = `http://8.130.169.254:6294/aly?message=` + messagess +
+					`=&key=sk-aa8e418b630c4f5ca10d18f3bb591294`;
+				// 发送 GET 请求
+				$.get(apiURL, function(data) {
+					try {
+						const response = JSON.parse(data);
+						//拿到数据，就要使用获取对象和获取数组方式进行拿数据
+						const chatMessage = response.output.choices[0].message.content;
+						if (!chatMessage) {
+							addErrorMessageToChat(); // 机器人没有回复，添加错误提示信息到聊天窗口中
+							return;
+						}
+						addMessageToChat('AI', chatMessage, 'bubble-left');
+					} catch {
+						addErrorMessageToChat();
+					}
+				}, 'text').fail(function() {
+					addErrorMessageToChat();
+				});
+			}
+			// 如果不是刷新页面事件，清空聊天记录
+			if (!isRefresh) {
+				chatMessages.empty();
+			}
+			// 绑定输入框的 submit 事件
+			$('.chat-form').submit(function(event) {
+				event.preventDefault();
+				if (flag) {
+					alert('请等待这次对话结束再发送');
+					return;
+				}
+				const message = $('input[type="text"]').val();
+				if (message.trim() !== '') {
+					addMessageToChat('', message, 'bubble-right');
+					getResponseFromAPI(message);
+				}
+			});
+		});
+	</script>
+</html>
